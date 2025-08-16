@@ -1,0 +1,510 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly SCRIPT_NAME="createNewProject"
+readonly GITHUB_REPO="git@github.com:TituxMetal/sample-project.git"
+readonly SAMPLE_PROJECT_PATH="${HOME}/webdev/labo/sample-project"
+readonly DEFAULT_BASE_PATH="${HOME}/webdev/labo"
+readonly PROJECTS_BASE_PATH="${HOME}/webdev/projects"
+
+logInfo() {
+  echo "$1"
+}
+
+logSuccess() {
+  echo "✅ $1"
+}
+
+logProgress() {
+  echo "🔄 $1"
+}
+
+logError() {
+  echo "❌ $1" >&2
+}
+
+logWarning() {
+  echo "⚠️  $1" >&2
+}
+
+logStep() {
+  echo "🚀 $1"
+}
+
+logCheck() {
+  echo "🔍 $1"
+}
+
+printUsage() {
+  echo "Usage: ${SCRIPT_NAME} <project-name> [--projects]" >&2
+  echo "       ${SCRIPT_NAME} --install" >&2
+  echo "" >&2
+  echo "Creates a new monorepo fullstack project by cloning the sample project." >&2
+  echo "" >&2
+  echo "Arguments:" >&2
+  echo "  project-name    Name of the project (required)" >&2
+  echo "" >&2
+  echo "Options:" >&2
+  echo "  --projects      Create project in ~/webdev/projects instead of ~/webdev/labo" >&2
+  echo "  --install       Install this script to ~/bin/" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  ${SCRIPT_NAME} my-awesome-app" >&2
+  echo "  ${SCRIPT_NAME} my-awesome-app --projects" >&2
+  echo "" >&2
+  echo "The project will be created with the format: YYYYMMDD-project-name" >&2
+}
+
+resolveScriptPath() {
+  local sourcePath="${BASH_SOURCE[0]}"
+
+  if command -v readlink >/dev/null 2>&1; then
+    local resolved
+    resolved="$(readlink -f "${sourcePath}" 2>/dev/null || true)"
+    [ -n "${resolved}" ] && { echo "${resolved}"; return 0; }
+  fi
+
+  if command -v realpath >/dev/null 2>&1; then
+    local resolved
+    resolved="$(realpath "${sourcePath}" 2>/dev/null || true)"
+    [ -n "${resolved}" ] && { echo "${resolved}"; return 0; }
+  fi
+
+  case "${sourcePath}" in
+    /*) echo "${sourcePath}" ;;
+    *) echo "${PWD}/${sourcePath}" ;;
+  esac
+}
+
+installSelf() {
+  local destinationDir="${HOME}/bin"
+  local destinationPath="${destinationDir}/createNewProject"
+  local scriptPath
+  scriptPath="$(resolveScriptPath)"
+
+  mkdir -p "${destinationDir}"
+  cp -f "${scriptPath}" "${destinationPath}"
+  chmod +x "${destinationPath}"
+
+  echo "==================================="
+  echo "🎉 Script installed successfully!"
+  echo "==================================="
+  echo "Installed to: ${destinationPath}"
+  echo ""
+  echo "Add this alias to your .bashrc:"
+  echo "echo 'alias createNewProject=\"${destinationPath}\"' >> ~/.bashrc"
+  echo ""
+  echo "Then reload your .bashrc:"
+  echo "source ~/.bashrc"
+  echo "==================================="
+}
+
+requireProjectName() {
+  local name="${1-}"
+  [ -n "${name}" ] && { echo "${name}"; return 0; } || { printUsage; exit 1; }
+}
+
+validateProjectNameFormat() {
+  local projectName="$1"
+  case "${projectName}" in
+    *[^a-zA-Z0-9-]*) 
+      echo "Error: Project name can only contain letters, numbers, and hyphens" >&2
+      exit 1
+      ;;
+  esac
+}
+
+checkDependency() {
+  local cmd="$1"
+  command -v "${cmd}" >/dev/null 2>&1 || {
+    logError "Missing required dependency: ${cmd}"
+    return 1
+  }
+}
+
+checkNvmAvailable() {
+  [ -s "${HOME}/.nvm/nvm.sh" ] || {
+    logError "nvm not found at ${HOME}/.nvm/nvm.sh"
+    return 1
+  }
+}
+
+checkGithubAuth() {
+  gh auth status >/dev/null 2>&1 || {
+    echo "Error: GitHub CLI not authenticated. Run 'gh auth login' first." >&2
+    return 1
+  }
+}
+
+checkSampleProjectExists() {
+  [ -d "${SAMPLE_PROJECT_PATH}" ] || {
+    echo "Error: Sample project not found at ${SAMPLE_PROJECT_PATH}" >&2
+    echo "Please ensure the sample project exists in ~/webdev/labo/sample-project" >&2
+    return 1
+  }
+}
+
+validateDependencies() {
+  local deps=("git" "gh" "yarn" "cursor" "curl" "jq")
+
+  for dep in "${deps[@]}"; do
+    checkDependency "${dep}"
+  done
+
+  checkNvmAvailable
+  checkGithubAuth
+  checkSampleProjectExists
+}
+
+createDateBasedProjectName() {
+  local projectName="$1"
+  local currentDate
+  currentDate="$(date +%Y%m%d)"
+  echo "${currentDate}-${projectName}"
+}
+
+getProjectPath() {
+  local useProjectsFlag="$1"
+  local fullProjectName="$2"
+
+  case "${useProjectsFlag}" in
+    "true") echo "${PROJECTS_BASE_PATH}/${fullProjectName}" ;;
+    *) echo "${DEFAULT_BASE_PATH}/${fullProjectName}" ;;
+  esac
+}
+
+detectLatestNodeLts() {
+  local nodeVersion
+  nodeVersion="$(curl -s https://nodejs.org/download/release/index.json | jq -r '[.[] | select(.lts != false)] | .[0].version' | sed 's/v//' 2>/dev/null || true)"
+  
+  [ -n "${nodeVersion}" ] && [ "${nodeVersion}" != "null" ] && {
+    echo "${nodeVersion}"
+    return 0
+  } || {
+    echo "Error: Failed to detect latest Node.js LTS version" >&2
+    return 1
+  }
+}
+
+detectLatestYarnVersion() {
+  local yarnVersion
+  yarnVersion="$(npm view yarn version --json 2>/dev/null | sed 's/"//g' || true)"
+  
+  [ -n "${yarnVersion}" ] && [ "${yarnVersion}" != "null" ] && {
+    echo "${yarnVersion}"
+    return 0
+  } || {
+    echo "Error: Failed to detect latest Yarn version" >&2
+    return 1
+  }
+}
+
+ensureDirectoryNotExists() {
+  local path="$1"
+  [ -e "${path}" ] && {
+    echo "Error: Project directory already exists: ${path}" >&2
+    exit 1
+  } || true
+}
+
+cloneAndInitializeRepo() {
+  local projectPath="$1"
+  
+  logProgress "Cloning sample project from GitHub..."
+  git clone "${GITHUB_REPO}" "${projectPath}" || {
+    logError "Failed to clone repository"
+    exit 1
+  }
+  
+  cd "${projectPath}"
+  
+  logProgress "Removing existing .git directory and initializing new repository..."
+  rm -rf .git
+  git init >/dev/null 2>&1
+  logSuccess "Repository initialized successfully!"
+  logInfo ""
+}
+
+handleExistingRepo() {
+  local projectName="$1"
+  logWarning "Repository 'TituxMetal/${projectName}' already exists on GitHub"
+  logProgress "Setting up remote origin for existing repository..."
+  git remote add origin "git@github.com:TituxMetal/${projectName}.git" 2>/dev/null || git remote set-url origin "git@github.com:TituxMetal/${projectName}.git"
+  logSuccess "Remote origin configured: https://github.com/TituxMetal/${projectName}"
+}
+
+createNewRepo() {
+  local projectName="$1"
+  gh repo create "${projectName}" --private --source=. --remote=origin --push=false || {
+    logError "Failed to create GitHub repository"
+    exit 1
+  }
+  git remote set-url origin "git@github.com:TituxMetal/${projectName}.git"
+  logSuccess "GitHub repository created: https://github.com/TituxMetal/${projectName}"
+}
+
+createGithubRepository() {
+  local projectName="$1"
+  local projectPath="$2"
+  
+  logProgress "Creating GitHub repository..."
+  cd "${projectPath}"
+  
+  # Check if repository already exists and handle accordingly
+  gh repo view "TituxMetal/${projectName}" >/dev/null 2>&1 && {
+    handleExistingRepo "${projectName}"
+  } || {
+    createNewRepo "${projectName}"
+  }
+  
+  logInfo ""
+}
+
+replaceInFile() {
+  local file="$1"
+  local projectName="$2"
+  
+  [ -f "${file}" ] && {
+    echo "  Updating ${file}..."
+    sed -i "s/sample-project/${projectName}/g" "${file}"
+    sed -i "s/{project-name}/${projectName}/g" "${file}"
+    sed -i "s/{your-username}/TituxMetal/g" "${file}"
+    sed -i "s/{your-dockerhub-org}/lgdweb/g" "${file}"
+    # Additional replacement for README title
+    sed -i "s/# Sample Project/# ${projectName}/g" "${file}"
+    sed -i "s/# sample-project/# ${projectName}/g" "${file}"
+  }
+}
+
+replaceProjectReferences() {
+  local projectName="$1"
+  local projectPath="$2"
+  
+  echo "🔄 Replacing sample-project references with ${projectName}..."
+  cd "${projectPath}"
+  
+  local files=(
+    "package.json" 
+    "README.md" 
+    "docker/compose.yaml" 
+    "scripts/docker-build.sh" 
+    "turbo.json"
+    "apps/api/package.json"
+    "apps/web/package.json"
+  )
+  
+  for file in "${files[@]}"; do
+    replaceInFile "${file}" "${projectName}"
+  done
+  
+  find .github -name "*.yml" -o -name "*.yaml" 2>/dev/null | while read -r file; do
+    replaceInFile "${file}" "${projectName}"
+  done
+  
+  find . -name "Dockerfile*" 2>/dev/null | while read -r file; do
+    replaceInFile "${file}" "${projectName}"
+  done
+  
+  find . -name ".env*" 2>/dev/null | while read -r file; do
+    replaceInFile "${file}" "${projectName}"
+  done
+}
+
+setupYarnConfiguration() {
+  local projectPath="$1"
+  
+  logProgress "Setting up Yarn configuration..."
+  cd "${projectPath}"
+  
+  [ -f "${SAMPLE_PROJECT_PATH}/.yarnrc.yml" ] && {
+    cp "${SAMPLE_PROJECT_PATH}/.yarnrc.yml" .
+    logSuccess "Copied .yarnrc.yml from sample project"
+  }
+  
+  logInfo ""
+}
+
+sourceNvm() {
+  export NVM_DIR="${HOME}/.nvm"
+  [ -s "${NVM_DIR}/nvm.sh" ] && source "${NVM_DIR}/nvm.sh"
+}
+
+setupNodeVersion() {
+  local projectPath="$1"
+  local nodeVersion="$2"
+  
+  logProgress "Setting up Node.js version ${nodeVersion}..."
+  cd "${projectPath}"
+  
+  sourceNvm
+  
+  logProgress "Installing Node.js ${nodeVersion} via nvm..."
+  nvm install "${nodeVersion}" || {
+    logError "Failed to install Node.js ${nodeVersion}"
+    exit 1
+  }
+  
+  nvm use "${nodeVersion}"
+  echo "${nodeVersion}" > .nvmrc
+  logSuccess "Created .nvmrc with Node.js ${nodeVersion}"
+  
+  logProgress "Enabling yarn via corepack..."
+  corepack enable || logWarning "Failed to enable corepack"
+  corepack prepare yarn@stable --activate || logWarning "Failed to prepare yarn"
+  
+  logInfo ""
+}
+
+installDependencies() {
+  local projectPath="$1"
+  
+  logProgress "Installing dependencies with yarn..."
+  cd "${projectPath}"
+  
+  sourceNvm
+  nvm use
+  
+  # Make sure PATH includes the current node version
+  export PATH="$(npm config get prefix)/bin:$PATH"
+  
+  yarn install || {
+    logError "Failed to install dependencies"
+    exit 1
+  }
+  
+  logSuccess "Dependencies installed successfully!"
+  logInfo ""
+}
+
+createEnvFiles() {
+  local projectPath="$1"
+  
+  logProgress "Creating default .env files..."
+  cd "${projectPath}"
+  
+  # Create web .env file
+  cat > "apps/web/.env" << 'EOF'
+API_URL=http://localhost:3000
+PUBLIC_API_URL=/
+EOF
+  logSuccess "Created apps/web/.env"
+  
+  # Create api .env file
+  cat > "apps/api/.env" << 'EOF'
+DATABASE_URL="file:./dev.db"
+EOF
+  logSuccess "Created apps/api/.env"
+  
+  logInfo ""
+}
+
+setupPrisma() {
+  local projectPath="$1"
+  
+  logProgress "Setting up Prisma database..."
+  cd "${projectPath}"
+  
+  sourceNvm
+  nvm use
+  export PATH="$(npm config get prefix)/bin:$PATH"
+  
+  logProgress "Generating Prisma client..."
+  yarn workspace @app/api prisma generate || {
+    logError "Failed to generate Prisma client"
+    exit 1
+  }
+  
+  logProgress "Pushing database schema..."
+  yarn workspace @app/api prisma db push || {
+    logError "Failed to push database schema"
+    exit 1
+  }
+  
+  logSuccess "Prisma setup completed successfully!"
+  logInfo ""
+}
+
+openInCursor() {
+  local projectPath="$1"
+  
+  echo "Opening project in Cursor..."
+  command -v cursor >/dev/null 2>&1 && {
+    cursor "${projectPath}" >/dev/null 2>&1 &
+  } || {
+    echo "Note: 'cursor' CLI not found. Open manually: ${projectPath}" >&2
+  }
+}
+
+main() {
+  case "${1-}" in
+    "--install")
+      installSelf
+      return 0
+      ;;
+    "--help"|"-h"|"")
+      printUsage
+      exit 0
+      ;;
+  esac
+
+  local projectName
+  projectName="$(requireProjectName "${1-}")"
+  validateProjectNameFormat "${projectName}"
+  
+  local useProjectsFlag="false"
+  [ "${2-}" = "--projects" ] && useProjectsFlag="true"
+
+  logCheck "Validating dependencies..."
+  validateDependencies
+  logSuccess "Dependencies validated successfully!"
+  logInfo ""
+
+  local fullProjectName
+  logProgress "Creating date-based project name..."
+  fullProjectName="$(createDateBasedProjectName "${projectName}")"
+  logSuccess "Full project name: ${fullProjectName}"
+  
+  local projectPath
+  logProgress "Determining project path..."
+  projectPath="$(getProjectPath "${useProjectsFlag}" "${fullProjectName}")"
+  logSuccess "Project path: ${projectPath}"
+  
+  logCheck "Checking if directory already exists..."
+  ensureDirectoryNotExists "${projectPath}"
+  logSuccess "Directory check passed!"
+  logInfo ""
+  
+  logStep "Creating project: ${fullProjectName}"
+  logInfo "📍 Location: ${projectPath}"
+  logInfo ""
+  
+  logProgress "Detecting latest versions..."
+  local nodeVersion yarnVersion
+  nodeVersion="$(detectLatestNodeLts)"
+  yarnVersion="$(detectLatestYarnVersion)"
+  logSuccess "Node.js LTS: ${nodeVersion}"
+  logSuccess "Yarn: ${yarnVersion}"
+  logInfo ""
+  
+  cloneAndInitializeRepo "${projectPath}"
+  createGithubRepository "${projectName}" "${projectPath}"
+  replaceProjectReferences "${projectName}" "${projectPath}"
+  setupYarnConfiguration "${projectPath}"
+  setupNodeVersion "${projectPath}" "${nodeVersion}"
+  installDependencies "${projectPath}"
+  createEnvFiles "${projectPath}"
+  setupPrisma "${projectPath}"
+  openInCursor "${projectPath}"
+  
+  echo ""
+  echo "==================================="
+  echo "🎉 Project created successfully!"
+  echo "==================================="
+  echo "Project: ${fullProjectName}"
+  echo "Location: ${projectPath}"
+  echo "GitHub: https://github.com/TituxMetal/${projectName}"
+  echo "==================================="
+}
+
+main "$@"
