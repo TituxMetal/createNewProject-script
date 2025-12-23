@@ -517,7 +517,7 @@ main() {
   
   # Validate that only one editor flag is specified
   [ "${editorFlagCount}" -gt 1 ] && {
-    logError "Cannot specify both --vscode and --cursor flags"
+    logError "Cannot specify multiple editor flags (--vscode/--cursor)"
     printUsage
     exit 1
   }
