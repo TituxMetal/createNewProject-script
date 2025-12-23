@@ -489,6 +489,7 @@ main() {
   
   local useProjectsFlag="false"
   local editor="${DEFAULT_EDITOR}"
+  local editorFlagCount=0
   
   # Parse optional flags (can be in any order)
   shift
@@ -499,9 +500,11 @@ main() {
         ;;
       "--cursor")
         editor="cursor"
+        editorFlagCount=$((editorFlagCount + 1))
         ;;
       "--vscode")
         editor="${DEFAULT_EDITOR}"
+        editorFlagCount=$((editorFlagCount + 1))
         ;;
       *)
         logError "Unknown option: $1"
@@ -511,6 +514,13 @@ main() {
     esac
     shift
   done
+  
+  # Validate that only one editor flag is specified
+  [ "${editorFlagCount}" -gt 1 ] && {
+    logError "Cannot specify both --vscode and --cursor flags"
+    printUsage
+    exit 1
+  }
 
   logCheck "Validating dependencies..."
   validateDependencies "${editor}"
