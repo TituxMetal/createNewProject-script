@@ -174,8 +174,8 @@ validateDependencies() {
   local editor="${1:-${DEFAULT_EDITOR}}"
   local editorCmd
   editorCmd="$(getEditorCommand "${editor}")"
-  
-  local deps=("git" "gh" "yarn" "${editorCmd}" "curl" "jq")
+
+  local deps=("git" "gh" "bun" "${editorCmd}" "curl" "jq")
 
   for dep in "${deps[@]}"; do
     checkDependency "${dep}"
@@ -216,15 +216,15 @@ detectLatestNodeLts() {
   }
 }
 
-detectLatestYarnVersion() {
-  local yarnVersion
-  yarnVersion="$(npm view yarn version --json 2>/dev/null | sed 's/"//g' || true)"
+detectLatestBunVersion() {
+  local bunVersion
+  bunVersion="$(bun --version 2>/dev/null || true)"
   
-  [ -n "${yarnVersion}" ] && [ "${yarnVersion}" != "null" ] && {
-    echo "${yarnVersion}"
+  [ -n "${bunVersion}" ] && [ "${bunVersion}" != "null" ] && {
+    echo "${bunVersion}"
     return 0
   } || {
-    echo "Error: Failed to detect latest Yarn version" >&2
+    echo "Error: Failed to detect Bun version" >&2
     return 1
   }
 }
@@ -340,19 +340,7 @@ replaceProjectReferences() {
   done
 }
 
-setupYarnConfiguration() {
-  local projectPath="$1"
-  
-  logProgress "Setting up Yarn configuration..."
-  cd "${projectPath}"
-  
-  [ -f "${SAMPLE_PROJECT_PATH}/.yarnrc.yml" ] && {
-    cp "${SAMPLE_PROJECT_PATH}/.yarnrc.yml" .
-    logSuccess "Copied .yarnrc.yml from sample project"
-  }
-  
-  logInfo ""
-}
+
 
 sourceNvm() {
   export NVM_DIR="${HOME}/.nvm"
@@ -378,17 +366,13 @@ setupNodeVersion() {
   echo "${nodeVersion}" > .nvmrc
   logSuccess "Created .nvmrc with Node.js ${nodeVersion}"
   
-  logProgress "Enabling yarn via corepack..."
-  corepack enable || logWarning "Failed to enable corepack"
-  corepack prepare yarn@stable --activate || logWarning "Failed to prepare yarn"
-  
   logInfo ""
 }
 
 installDependencies() {
   local projectPath="$1"
   
-  logProgress "Installing dependencies with yarn..."
+  logProgress "Installing dependencies with bun..."
   cd "${projectPath}"
   
   sourceNvm
@@ -397,7 +381,7 @@ installDependencies() {
   # Make sure PATH includes the current node version
   export PATH="$(npm config get prefix)/bin:$PATH"
   
-  yarn install || {
+  bun install || {
     logError "Failed to install dependencies"
     exit 1
   }
@@ -439,13 +423,13 @@ setupPrisma() {
   export PATH="$(npm config get prefix)/bin:$PATH"
   
   logProgress "Generating Prisma client..."
-  yarn workspace @app/api prisma generate || {
+  bun run --filter @app/api prisma generate || {
     logError "Failed to generate Prisma client"
     exit 1
   }
   
   logProgress "Pushing database schema..."
-  yarn workspace @app/api prisma db push || {
+  bun run --filter @app/api prisma db push || {
     logError "Failed to push database schema"
     exit 1
   }
@@ -547,17 +531,16 @@ main() {
   logInfo ""
   
   logProgress "Detecting latest versions..."
-  local nodeVersion yarnVersion
+  local nodeVersion bunVersion
   nodeVersion="$(detectLatestNodeLts)"
-  yarnVersion="$(detectLatestYarnVersion)"
+  bunVersion="$(detectLatestBunVersion)"
   logSuccess "Node.js LTS: ${nodeVersion}"
-  logSuccess "Yarn: ${yarnVersion}"
+  logSuccess "Bun: ${bunVersion}"
   logInfo ""
   
   cloneAndInitializeRepo "${projectPath}"
   createGithubRepository "${projectName}" "${projectPath}"
   replaceProjectReferences "${projectName}" "${projectPath}"
-  setupYarnConfiguration "${projectPath}"
   setupNodeVersion "${projectPath}" "${nodeVersion}"
   installDependencies "${projectPath}"
   createEnvFiles "${projectPath}"
