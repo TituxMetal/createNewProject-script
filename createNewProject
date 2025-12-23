@@ -216,7 +216,7 @@ detectLatestNodeLts() {
   }
 }
 
-detectLatestBunVersion() {
+detectCurrentBunVersion() {
   local bunVersion
   bunVersion="$(bun --version 2>/dev/null || true)"
   
@@ -423,16 +423,18 @@ setupPrisma() {
   export PATH="$(npm config get prefix)/bin:$PATH"
   
   logProgress "Generating Prisma client..."
-  bun run --filter @app/api prisma generate || {
+  cd apps/api
+  bun run prisma generate || {
     logError "Failed to generate Prisma client"
     exit 1
   }
   
   logProgress "Pushing database schema..."
-  bun run --filter @app/api prisma db push || {
+  bun run prisma db push || {
     logError "Failed to push database schema"
     exit 1
   }
+  cd "${projectPath}"
   
   logSuccess "Prisma setup completed successfully!"
   logInfo ""
@@ -533,7 +535,7 @@ main() {
   logProgress "Detecting latest versions..."
   local nodeVersion bunVersion
   nodeVersion="$(detectLatestNodeLts)"
-  bunVersion="$(detectLatestBunVersion)"
+  bunVersion="$(detectCurrentBunVersion)"
   logSuccess "Node.js LTS: ${nodeVersion}"
   logSuccess "Bun: ${bunVersion}"
   logInfo ""
