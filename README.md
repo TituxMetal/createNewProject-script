@@ -231,8 +231,9 @@ The script provides detailed progress information:
 ```bash
 # Install missing dependencies
 brew install gh nvm bun curl jq          # macOS
-sudo apt install gh curl jq              # Debian (nvm: https://github.com/nvm-sh/nvm#installing-and-updating, bun: https://bun.sh)
-sudo pacman -S github-cli curl jq nvm    # Arch Linux (bun: https://bun.sh)
+sudo apt install gh curl jq              # Debian (nvm: https://github.com/nvm-sh/nvm#installing-and-updating)
+sudo pacman -S github-cli curl jq nvm    # Arch Linux
+curl -fsSL https://bun.sh/install | bash # Bun (Linux/macOS)
 ```
 
 **GitHub authentication**:
