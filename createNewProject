@@ -7,6 +7,7 @@ readonly GITHUB_REPO="git@github.com:TituxMetal/sample-project.git"
 readonly SAMPLE_PROJECT_PATH="${HOME}/webdev/labo/sample-project"
 readonly DEFAULT_BASE_PATH="${HOME}/webdev/labo"
 readonly PROJECTS_BASE_PATH="${HOME}/webdev/projects"
+readonly DEFAULT_EDITOR="vscode"
 
 logInfo() {
   echo "$1"
@@ -151,7 +152,7 @@ checkSampleProjectExists() {
 }
 
 getEditorCommand() {
-  local editor="${1:-vscode}"
+  local editor="${1:-${DEFAULT_EDITOR}}"
   
   case "${editor}" in
     "cursor") echo "cursor" ;;
@@ -160,8 +161,17 @@ getEditorCommand() {
   esac
 }
 
+getEditorName() {
+  local editor="${1:-${DEFAULT_EDITOR}}"
+  
+  case "${editor}" in
+    "cursor") echo "Cursor" ;;
+    *) echo "VSCode" ;;
+  esac
+}
+
 validateDependencies() {
-  local editor="${1:-vscode}"
+  local editor="${1:-${DEFAULT_EDITOR}}"
   local editorCmd
   editorCmd="$(getEditorCommand "${editor}")"
   
@@ -446,16 +456,12 @@ setupPrisma() {
 
 openInEditor() {
   local projectPath="$1"
-  local editor="${2:-vscode}"
+  local editor="${2:-${DEFAULT_EDITOR}}"
   local editorCmd
   local editorName
   
   editorCmd="$(getEditorCommand "${editor}")"
-  
-  case "${editor}" in
-    "cursor") editorName="Cursor" ;;
-    *) editorName="VSCode" ;;
-  esac
+  editorName="$(getEditorName "${editor}")"
   
   echo "Opening project in ${editorName}..."
   command -v "${editorCmd}" >/dev/null 2>&1 && {
@@ -482,7 +488,7 @@ main() {
   validateProjectNameFormat "${projectName}"
   
   local useProjectsFlag="false"
-  local editor="vscode"
+  local editor="${DEFAULT_EDITOR}"
   
   # Parse optional flags (can be in any order)
   shift
@@ -495,7 +501,7 @@ main() {
         editor="cursor"
         ;;
       "--vscode")
-        editor="vscode"
+        editor="${DEFAULT_EDITOR}"
         ;;
       *)
         logError "Unknown option: $1"
