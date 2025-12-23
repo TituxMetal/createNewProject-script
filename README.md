@@ -128,7 +128,7 @@ The script automatically creates date-based project names:
 9. **📦 Dependency Installation** - Installs all project dependencies
 10. **📄 Environment Files** - Creates default .env files
 11. **🗃️ Database Setup** - Initializes Prisma client and database
-12. **🖥️ IDE Launch** - Opens project in VSCode (default) or Cursor
+12. **🖥️ IDE Launch** - Opens project in VSCode (default) or Cursor IDE
 
 ## 📁 Generated Project Structure
 
