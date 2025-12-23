@@ -10,8 +10,7 @@ and customizing a sample project template.
 - 🐙 **GitHub Integration** - Creates GitHub repositories and handles existing repos gracefully
 - 🔄 **Smart Reference Replacement** - Updates all project-specific references throughout the
   codebase
-- 📦 **Node.js & Yarn Management** - Automatically installs latest LTS Node.js via nvm and
-  configures Yarn via corepack
+- 📦 **Node.js & Bun Management** - Automatically installs latest LTS Node.js via nvm and uses Bun as the package manager
 - 🗃️ **Database Setup** - Initializes Prisma client and database schema
 - 📁 **Environment Configuration** - Creates default .env files for both API and web applications
 - 🖥️ **IDE Integration** - Opens the project in VSCode (default) or Cursor IDE automatically
@@ -24,7 +23,7 @@ Before using this script, ensure you have the following installed:
 - **git** - Version control
 - **gh** (GitHub CLI) - For GitHub repository management (must be authenticated)
 - **nvm** - Node Version Manager for Node.js installation
-- **yarn** - Package manager (will be configured via corepack)
+- **bun** - Package manager for installing dependencies
 - **code** (VSCode) or **cursor** - IDE for opening the project (VSCode is default)
 - **curl** - For fetching latest version information
 - **jq** - JSON processor for parsing API responses
@@ -114,7 +113,7 @@ The script automatically creates date-based project names:
 
 1. **🔍 Validation** - Checks all dependencies and authentication
 2. **📅 Project Setup** - Creates date-based project name and validates paths
-3. **🌐 Version Detection** - Fetches latest Node.js LTS and Yarn versions
+3. **🌐 Version Detection** - Fetches latest Node.js LTS and Bun versions
 4. **📦 Repository Cloning** - Clones the sample project template
 5. **🐙 GitHub Integration** - Creates/configures GitHub repository
 6. **🔄 Reference Replacement** - Updates all project-specific content:
@@ -124,11 +123,10 @@ The script automatically creates date-based project names:
    - Apps package.json files (API and Web)
    - Environment example files
 7. **📦 Node.js Setup** - Installs and configures latest LTS Node.js
-8. **🧶 Yarn Configuration** - Sets up Yarn via corepack
-9. **📦 Dependency Installation** - Installs all project dependencies
-10. **📄 Environment Files** - Creates default .env files
-11. **🗃️ Database Setup** - Initializes Prisma client and database
-12. **🖥️ IDE Launch** - Opens project in VSCode (default) or Cursor IDE
+8. **📦 Dependency Installation** - Installs all project dependencies with Bun
+9. **📄 Environment Files** - Creates default .env files
+10. **🗃️ Database Setup** - Initializes Prisma client and database
+11. **🖥️ IDE Launch** - Opens project in VSCode (default) or Cursor IDE
 
 ## 📁 Generated Project Structure
 
@@ -144,7 +142,6 @@ After successful execution, your project will contain:
 │       ├── .env                    # Created with API URLs
 │       └── package.json           # Updated with project name
 ├── .nvmrc                          # Latest Node.js LTS version
-├── .yarnrc.yml                     # Copied from sample project
 ├── README.md                       # Updated with project name
 ├── package.json                    # Updated with project name
 └── .git/                           # New repository linked to GitHub
@@ -192,8 +189,8 @@ PUBLIC_API_URL=/
 The script automatically runs:
 
 ```bash
-yarn workspace @app/api prisma generate
-yarn workspace @app/api prisma db push
+bun run --filter @app/api prisma generate
+bun run --filter @app/api prisma db push
 ```
 
 ## 🛠️ Architecture
@@ -232,9 +229,9 @@ The script provides detailed progress information:
 
 ```bash
 # Install missing dependencies
-brew install gh nvm yarn curl jq          # macOS
-sudo apt install gh curl jq               # Debian (nvm: https://github.com/nvm-sh/nvm#installing-and-updating)
-sudo pacman -S github-cli curl jq nvm     # Arch Linux
+brew install gh nvm bun curl jq          # macOS
+sudo apt install gh curl jq              # Debian (nvm: https://github.com/nvm-sh/nvm#installing-and-updating, bun: https://bun.sh)
+sudo pacman -S github-cli curl jq nvm    # Arch Linux (bun: https://bun.sh)
 ```
 
 **GitHub authentication**:
@@ -249,11 +246,6 @@ gh auth login
 # Ensure sample project exists at:
 ls ~/webdev/labo/sample-project
 ```
-
-**Yarn command not found**:
-
-- The script handles this automatically via corepack
-- Ensure Node.js is properly installed via nvm
 
 ### Debug Mode
 
