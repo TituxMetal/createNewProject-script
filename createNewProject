@@ -37,7 +37,7 @@ logCheck() {
 }
 
 printUsage() {
-  echo "Usage: ${SCRIPT_NAME} <project-name> [--projects]" >&2
+  echo "Usage: ${SCRIPT_NAME} <project-name> [--projects] [--vscode|--cursor]" >&2
   echo "       ${SCRIPT_NAME} --install" >&2
   echo "" >&2
   echo "Creates a new monorepo fullstack project by cloning the sample project." >&2
@@ -47,11 +47,16 @@ printUsage() {
   echo "" >&2
   echo "Options:" >&2
   echo "  --projects      Create project in ~/webdev/projects instead of ~/webdev/labo" >&2
+  echo "  --vscode        Open project in VSCode (default)" >&2
+  echo "  --cursor        Open project in Cursor IDE" >&2
   echo "  --install       Install this script to ~/bin/" >&2
   echo "" >&2
   echo "Examples:" >&2
   echo "  ${SCRIPT_NAME} my-awesome-app" >&2
   echo "  ${SCRIPT_NAME} my-awesome-app --projects" >&2
+  echo "  ${SCRIPT_NAME} my-awesome-app --vscode" >&2
+  echo "  ${SCRIPT_NAME} my-awesome-app --cursor" >&2
+  echo "  ${SCRIPT_NAME} my-awesome-app --projects --cursor" >&2
   echo "" >&2
   echo "The project will be created with the format: YYYYMMDD-project-name" >&2
 }
@@ -146,7 +151,16 @@ checkSampleProjectExists() {
 }
 
 validateDependencies() {
-  local deps=("git" "gh" "yarn" "cursor" "curl" "jq")
+  local editor="${1:-vscode}"
+  local editorCmd
+  
+  case "${editor}" in
+    "cursor") editorCmd="cursor" ;;
+    "vscode") editorCmd="code" ;;
+    *) editorCmd="code" ;;
+  esac
+  
+  local deps=("git" "gh" "yarn" "${editorCmd}" "curl" "jq")
 
   for dep in "${deps[@]}"; do
     checkDependency "${dep}"
@@ -425,14 +439,32 @@ setupPrisma() {
   logInfo ""
 }
 
-openInCursor() {
+openInEditor() {
   local projectPath="$1"
+  local editor="${2:-vscode}"
+  local editorCmd
+  local editorName
   
-  echo "Opening project in Cursor..."
-  command -v cursor >/dev/null 2>&1 && {
-    cursor "${projectPath}" >/dev/null 2>&1 &
+  case "${editor}" in
+    "cursor")
+      editorCmd="cursor"
+      editorName="Cursor"
+      ;;
+    "vscode")
+      editorCmd="code"
+      editorName="VSCode"
+      ;;
+    *)
+      editorCmd="code"
+      editorName="VSCode"
+      ;;
+  esac
+  
+  echo "Opening project in ${editorName}..."
+  command -v "${editorCmd}" >/dev/null 2>&1 && {
+    "${editorCmd}" "${projectPath}" >/dev/null 2>&1 &
   } || {
-    echo "Note: 'cursor' CLI not found. Open manually: ${projectPath}" >&2
+    echo "Note: '${editorCmd}' CLI not found. Open manually: ${projectPath}" >&2
   }
 }
 
@@ -453,10 +485,32 @@ main() {
   validateProjectNameFormat "${projectName}"
   
   local useProjectsFlag="false"
-  [ "${2-}" = "--projects" ] && useProjectsFlag="true"
+  local editor="vscode"
+  
+  # Parse optional flags (can be in any order)
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      "--projects")
+        useProjectsFlag="true"
+        ;;
+      "--cursor")
+        editor="cursor"
+        ;;
+      "--vscode")
+        editor="vscode"
+        ;;
+      *)
+        logError "Unknown option: $1"
+        printUsage
+        exit 1
+        ;;
+    esac
+    shift
+  done
 
   logCheck "Validating dependencies..."
-  validateDependencies
+  validateDependencies "${editor}"
   logSuccess "Dependencies validated successfully!"
   logInfo ""
 
@@ -495,7 +549,7 @@ main() {
   installDependencies "${projectPath}"
   createEnvFiles "${projectPath}"
   setupPrisma "${projectPath}"
-  openInCursor "${projectPath}"
+  openInEditor "${projectPath}" "${editor}"
   
   echo ""
   echo "==================================="
