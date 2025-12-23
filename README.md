@@ -14,7 +14,7 @@ and customizing a sample project template.
   configures Yarn via corepack
 - 🗃️ **Database Setup** - Initializes Prisma client and database schema
 - 📁 **Environment Configuration** - Creates default .env files for both API and web applications
-- 🖥️ **IDE Integration** - Opens the project in Cursor IDE automatically
+- 🖥️ **IDE Integration** - Opens the project in VSCode (default) or Cursor IDE automatically
 - 🔍 **Verbose Logging** - Clear progress indication with emojis and detailed status messages
 
 ## 📋 Prerequisites
@@ -25,7 +25,7 @@ Before using this script, ensure you have the following installed:
 - **gh** (GitHub CLI) - For GitHub repository management (must be authenticated)
 - **nvm** - Node Version Manager for Node.js installation
 - **yarn** - Package manager (will be configured via corepack)
-- **cursor** - IDE for opening the project
+- **code** (VSCode) or **cursor** - IDE for opening the project (VSCode is default)
 - **curl** - For fetching latest version information
 - **jq** - JSON processor for parsing API responses
 
@@ -73,11 +73,20 @@ source ~/.bashrc
 ### Basic Usage
 
 ```bash
-# Create a project in ~/webdev/labo/
+# Create a project in ~/webdev/labo/ (opens in VSCode by default)
 createNewProject my-awesome-app
 
 # Create a project in ~/webdev/projects/
 createNewProject my-awesome-app --projects
+
+# Explicitly use VSCode
+createNewProject my-awesome-app --vscode
+
+# Use Cursor IDE instead
+createNewProject my-awesome-app --cursor
+
+# Combine flags in any order
+createNewProject my-awesome-app --projects --cursor
 
 # Show help
 createNewProject --help
@@ -96,6 +105,8 @@ The script automatically creates date-based project names:
 | -------------- | ------------------------------------------------------------------ |
 | `project-name` | Name of the project (required, alphanumeric and hyphens only)      |
 | `--projects`   | Create project in `~/webdev/projects/` instead of `~/webdev/labo/` |
+| `--vscode`     | Open project in VSCode (default)                                   |
+| `--cursor`     | Open project in Cursor IDE                                         |
 | `--install`    | Install the script to `~/bin/createNewProject`                     |
 | `--help`, `-h` | Show usage information                                             |
 
@@ -117,7 +128,7 @@ The script automatically creates date-based project names:
 9. **📦 Dependency Installation** - Installs all project dependencies
 10. **📄 Environment Files** - Creates default .env files
 11. **🗃️ Database Setup** - Initializes Prisma client and database
-12. **🖥️ IDE Launch** - Opens project in Cursor
+12. **🖥️ IDE Launch** - Opens project in VSCode (default) or Cursor
 
 ## 📁 Generated Project Structure
 
