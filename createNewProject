@@ -150,15 +150,20 @@ checkSampleProjectExists() {
   }
 }
 
+getEditorCommand() {
+  local editor="${1:-vscode}"
+  
+  case "${editor}" in
+    "cursor") echo "cursor" ;;
+    "vscode") echo "code" ;;
+    *) echo "code" ;;
+  esac
+}
+
 validateDependencies() {
   local editor="${1:-vscode}"
   local editorCmd
-  
-  case "${editor}" in
-    "cursor") editorCmd="cursor" ;;
-    "vscode") editorCmd="code" ;;
-    *) editorCmd="code" ;;
-  esac
+  editorCmd="$(getEditorCommand "${editor}")"
   
   local deps=("git" "gh" "yarn" "${editorCmd}" "curl" "jq")
 
@@ -445,19 +450,11 @@ openInEditor() {
   local editorCmd
   local editorName
   
+  editorCmd="$(getEditorCommand "${editor}")"
+  
   case "${editor}" in
-    "cursor")
-      editorCmd="cursor"
-      editorName="Cursor"
-      ;;
-    "vscode")
-      editorCmd="code"
-      editorName="VSCode"
-      ;;
-    *)
-      editorCmd="code"
-      editorName="VSCode"
-      ;;
+    "cursor") editorName="Cursor" ;;
+    *) editorName="VSCode" ;;
   esac
   
   echo "Opening project in ${editorName}..."
