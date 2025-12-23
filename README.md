@@ -189,8 +189,9 @@ PUBLIC_API_URL=/
 The script automatically runs:
 
 ```bash
-bun run --filter @app/api prisma generate
-bun run --filter @app/api prisma db push
+cd apps/api
+bun run prisma generate
+bun run prisma db push
 ```
 
 ## 🛠️ Architecture
